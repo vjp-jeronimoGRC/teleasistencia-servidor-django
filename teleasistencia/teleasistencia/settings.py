@@ -9,17 +9,24 @@ https://docs.djangoproject.com/en/3.2/topics/settings/
 For the full list of settings and their values, see
 https://docs.djangoproject.com/en/3.2/ref/settings/
 """
-
+import json
 from pathlib import Path
 import os
+import sys
 from dotenv import load_dotenv
 from datetime import timedelta
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
+from typing_extensions import OrderedDict
+
 BASE_DIR = Path(__file__).resolve().parent.parent
 
 # Cargar ciertas variables desde variables de sistema o el fichero "BASE_DIR/.env"
 load_dotenv()
+
+# Añadir la carpeta utilidad al path the python para poder usarlo como una libreria instalada con pip
+PROJECT_ROOT = os.path.dirname(os.path.abspath(__file__))
+sys.path.insert(0, os.path.join(PROJECT_ROOT, 'utilidad'))
 
 # Quick-start development settings - unsuitable for production
 # See https://docs.djangoproject.com/en/3.2/howto/deployment/checklist/
@@ -36,6 +43,9 @@ ALLOWED_HOSTS = ['10.0.2.2','localhost','127.0.0.1','192.168.0.12','*']
 MEDIA_URL = '/media/'
 MEDIA_ROOT = os.path.join(BASE_DIR,'/teleasistenciaApp')
 
+# Ancho y Alto
+MINIFICATION_SIZE = (100, 100)
+MINIFICATION_QUALITY = 80
 
 
 # Application definition
@@ -64,7 +74,9 @@ INSTALLED_APPS = [
 
     'teleasistenciaApp',
     # App para la notificación de alarmas
-    'alarmasApp'
+    'alarmasApp.apps.AlarmasAppConfig',
+    # App para gestionar todos los tipos de eventos temporizados
+    'schedulerApp.apps.SchedulerAppConfig'
 ]
 
 ASGI_APPLICATION = 'teleasistencia.asgi.application'
@@ -206,14 +218,26 @@ WSGI_APPLICATION = 'teleasistencia.wsgi.application'
 # Database
 # https://docs.djangoproject.com/en/3.2/ref/settings/#databases
 
-DATABASES = {
-    'default': {
-        'ENGINE': 'django.db.backends.sqlite3',
-        'NAME': str(BASE_DIR / 'db.sqlite3'),
+# Obtenemos los datos de conexión de la base de datos de la variable .env
+#En el caso de encontrar algún archvio sqlite3 actualizamos la ruta
+database =""
+if (os.getenv('DATABASES')):
+    database = json.loads(os.getenv('DATABASES'))
+    for data in database:
+        if "sqlite" in database[data]["ENGINE"]:
+            # Añadirmos la ruta absoluta en la que se encuentra la base de datos
+            database[data]["NAME"] = str(BASE_DIR / database[data]["NAME"])
+
+# Comprobamos si se ha cargado bien la base de datos sino cargamos la de por defecto
+if database:
+    DATABASES = database
+else:
+    DATABASES = {
+        'default': {
+            'ENGINE': 'django.db.backends.sqlite3',
+            'NAME': str(BASE_DIR / 'db.sqlite3'),
+        }
     }
-}
-
-
 # Password validation
 # https://docs.djangoproject.com/en/3.2/ref/settings/#auth-password-validators
 
